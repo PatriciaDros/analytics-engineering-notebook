@@ -283,7 +283,7 @@ instead of
 
 ---
 
-# Connection to Project Renaissance
+# Connection to Project Observatory
 
 This is the same mindset used to build a dimensional warehouse.
 
