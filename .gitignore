@@ -1,0 +1,12 @@
+# macOS
+.DS_Store
+
+# Obsidian
+.obsidian/
+
+# VS Code
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
