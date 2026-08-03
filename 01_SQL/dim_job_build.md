@@ -1,0 +1,256 @@
+# Building `dim_job`
+
+## Objective
+
+Create the **Job Dimension**, which stores the descriptive information for each job performed by the company.
+
+`dim_job` is a core dimension that is referenced by multiple fact and dimension tables throughout the warehouse.
+
+**Grain**
+
+> **One row = One JobID**
+
+Each record represents a single job and contains the current descriptive attributes for that job.
+
+---
+
+# Final Schema
+
+```text
+dim_job
+---------------------------------------------------------------------------------------
+Column Name        Data Type      Null    Key     Default              Notes
+---------------------------------------------------------------------------------------
+job_key            INT            NO      PK      AUTO_INCREMENT       Surrogate key
+job_id             VARCHAR(10)    NO      UK      NULL                 Business key
+building_id        VARCHAR(10)    NO              NULL                 Building identifier
+job_description    VARCHAR(100)   YES             NULL                 Description of work
+service_id         INT            YES             NULL                 Client Service ID
+project_id         VARCHAR(10)    YES             NULL                 Client Project ID
+contract_no        VARCHAR(20)    YES             NULL                 Contract number
+wa_number          INT            YES             NULL                 Work Authorization Number
+job_status         VARCHAR(10)    YES             NULL                 Current job status
+load_date          DATETIME       YES             CURRENT_TIMESTAMP    ETL load timestamp
+```
+
+---
+
+# Business Keys vs Surrogate Keys
+
+## Business Key
+
+The source system uniquely identifies a job by:
+
+```text
+job_id
+```
+
+This value comes directly from the business (for example, `22-029`).
+
+---
+
+## Surrogate Key
+
+The warehouse generates its own key:
+
+```text
+job_key
+```
+
+Example:
+
+| job_key | job_id |
+|---------:|---------|
+| 1 | 22-029 |
+| 2 | 22-079 |
+| 3 | 23-056 |
+
+Using surrogate keys provides:
+
+- Faster joins
+- Stable relationships
+- Independence from source system changes
+- Consistent foreign keys throughout the warehouse
+
+---
+
+# Source Data
+
+The source for `dim_job` is:
+
+```
+stg_job_list
+```
+
+This staging table contains the operational job information imported from Excel.
+
+---
+
+# ETL Process
+
+```
+Excel Job List
+        │
+        ▼
+stg_job_list
+        │
+        ▼
+     dim_job
+```
+
+Unlike other dimensions, no joins are required because all required attributes already exist in the staging table.
+
+---
+
+# Table Creation
+
+```sql
+CREATE TABLE dim_job (
+    job_key INT AUTO_INCREMENT PRIMARY KEY,
+    job_id VARCHAR(10) NOT NULL UNIQUE,
+    building_id VARCHAR(10) NOT NULL,
+    job_description VARCHAR(100),
+    service_id INT,
+    project_id VARCHAR(10),
+    contract_no VARCHAR(20),
+    wa_number INT,
+    job_status VARCHAR(10),
+    load_date DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+# Loading the Data
+
+Since the table was empty and the source file already existed, the data was loaded using the **MySQL Workbench Table Data Import Wizard**.
+
+During the import:
+
+- `job_key` was automatically generated (`AUTO_INCREMENT`)
+- `load_date` was automatically populated (`CURRENT_TIMESTAMP`)
+- All remaining columns were imported directly from the CSV
+
+No SQL `INSERT` statement was required.
+
+---
+
+# Validation Checks
+
+## 1. Verify the number of rows
+
+```sql
+SELECT COUNT(*)
+FROM dim_job;
+```
+
+Compare with:
+
+```sql
+SELECT COUNT(*)
+FROM stg_job_list;
+```
+
+The row counts should match.
+
+---
+
+## 2. Verify the loaded data
+
+```sql
+SELECT *
+FROM dim_job
+ORDER BY job_key;
+```
+
+Check that:
+
+- JobIDs are correct
+- Building IDs are correct
+- Service IDs are correct
+- Contract numbers are correct
+- WA Numbers are correct
+- Job Status values are correct
+- `job_key` increments correctly
+- `load_date` populated automatically
+
+---
+
+## 3. Verify JobID uniqueness
+
+Since `job_id` is the business key, every value should be unique.
+
+```sql
+SELECT
+    job_id,
+    COUNT(*) AS duplicates
+FROM dim_job
+GROUP BY job_id
+HAVING COUNT(*) > 1;
+```
+
+Expected result:
+
+```
+Empty set
+```
+
+---
+
+## 4. Check for missing required values
+
+```sql
+SELECT *
+FROM dim_job
+WHERE job_id IS NULL
+   OR building_id IS NULL;
+```
+
+Expected result:
+
+```
+Empty set
+```
+
+---
+
+# Relationships
+
+`dim_job` serves as a lookup table for other warehouse tables.
+
+```
+dim_job
+   │
+   ├────────► dim_rfp
+   │
+   ├────────► fact_labor
+   │
+   ├────────► fact_lab
+   │
+   └────────► fact_job_summary
+```
+
+The preferred warehouse relationship is through:
+
+```
+job_key
+```
+
+The staging tables continue to use:
+
+```
+job_id
+```
+
+During ETL, `job_id` is used to look up the corresponding `job_key`.
+
+---
+
+# Lessons Learned
+
+- Every dimension should have a clearly defined grain before it is built.
+- Surrogate keys should be generated by the warehouse, not the source system.
+- Business keys remain useful for ETL lookups but should not be the primary key.
+- Small static dimensions can be loaded efficiently using the MySQL Workbench Data Import Wizard.
+- Always validate row counts, uniqueness, and required fields after loading.
+- `dim_job` becomes one of the central lookup tables in the warehouse and is referenced by multiple downstream dimensions and fact tables.
