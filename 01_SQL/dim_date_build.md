@@ -290,3 +290,39 @@ Additional attributes often found in enterprise data warehouses include:
 | FiscalQuarter | Q3 |
 
 These are useful for more advanced reporting but are not necessary for a first version of the project.
+
+---
+
+# Validation Queries
+
+After loading the table, verify the results.
+
+View the first few rows:
+
+```sql
+SELECT *
+FROM dim_date
+ORDER BY FullDate
+LIMIT 10;
+```
+
+Check the number of dates loaded:
+
+```sql
+SELECT COUNT(*) AS TotalDates
+FROM dim_date;
+```
+
+These simple validation queries help confirm that the ETL process completed successfully.
+
+---
+
+# Key Takeaways
+
+- `dim_date` is one of the most commonly used dimension tables in a data warehouse.
+- A surrogate integer `DateKey` is the standard primary key.
+- Recursive CTEs provide an elegant way to generate dates.
+- Date attributes are calculated once and reused across every report.
+- Validation after loading data is an important ETL best practice.
+- Keeping the first version simple makes the model easier to understand and extend later.
+
